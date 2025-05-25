@@ -1,0 +1,178 @@
+==============================================================
+EXPLICATION DU PIPELINE D'ANALYSE D'IMPACT DES SORTIES DE FONDS
+==============================================================
+
+Ce document détaille le fonctionnement du pipeline d'analyse qui évalue
+l'impact des sorties de fonds d'investissement sur les métriques des
+projets de cryptomonnaies, avec décorrélation de l'effet Bitcoin.
+
+------------------------------------------------------------
+PRÉSENTATION GÉNÉRALE
+------------------------------------------------------------
+
+Le pipeline complet comprend trois étapes principales:
+
+1. Traitement des métriques de projets individuels
+2. Analyse de décorrélation BTC
+3. Génération des visualisations
+
+Ces étapes peuvent être exécutées manuellement ou automatiquement via
+le script run_pipeline.py qui orchestre le processus complet.
+
+------------------------------------------------------------
+STRUCTURE DES FICHIERS
+------------------------------------------------------------
+
+Le pipeline utilise les fichiers et répertoires suivants:
+
+SCRIPTS PRINCIPAUX:
+- process_project_metrics.py    : Traite les métriques de projets individuels
+- analyse_impact_decorrelation_btc.py : Analyse l'impact avec décorrélation BTC
+- generate_impact_visuals.py    : Génère les visualisations finales
+- run_pipeline.py              : Exécute automatiquement l'ensemble du pipeline
+
+DONNÉES D'ENTRÉE:
+- Onchain_exits_dynamic.csv    : Données sur les sorties de fonds
+- FinancialResults/Outputs/*.csv : Fichiers de métriques par projet
+- Analysis/Bitcoin_04_07_2010-03_09_2010_historical_data_coinmarketcap.csv : Historique Bitcoin
+- FinancialResults/Outputs/AnalyseBTC/correlations_btc.csv : Corrélations projet-BTC
+
+RÉPERTOIRES DE SORTIE:
+- FinancialResults/Outputs/AnalyseSimple/ : Résultats d'impact brut
+- FinancialResults/Outputs/AnalyseDecorelation/ : Résultats d'impact décorrélé
+- VisualsOutput/ : Visualisations finales
+
+------------------------------------------------------------
+ÉTAPE 1: TRAITEMENT DES MÉTRIQUES DE PROJETS
+------------------------------------------------------------
+
+Script: process_project_metrics.py
+
+Fonctionnement:
+1. Synchronisation des fichiers de métriques:
+   - Copie les fichiers de métriques depuis le répertoire original
+   - Garantit que les versions les plus récentes sont disponibles
+
+2. Chargement des données de sorties:
+   - Lit le fichier Onchain_exits_dynamic.csv qui contient les informations
+     sur les sorties de fonds (date, projet, fond)
+
+3. Traitement des métriques pour chaque projet:
+   - Pour chaque sortie de fonds, identifie le fichier de métriques correspondant
+   - Pour chaque métrique, extrait les valeurs avant et après la sortie
+   - Calcule la variation en pourcentage
+   - Détermine la direction de l'impact (Positive, Négative, Stable)
+
+4. Sortie:
+   - Génère resume_impact.csv: Fichier principal contenant tous les impacts calculés
+   - Génère resume_par_projet.csv: Résumé des impacts par projet
+
+Les outputs de cette étape sont stockés dans FinancialResults/Outputs/AnalyseSimple/
+
+------------------------------------------------------------
+ÉTAPE 2: ANALYSE DE DÉCORRÉLATION BTC
+------------------------------------------------------------
+
+Script: analyse_impact_decorrelation_btc.py
+
+Fonctionnement:
+1. Chargement des données:
+   - Lit les résultats d'impact brut (resume_impact.csv)
+   - Lit les corrélations BTC (correlations_btc.csv)
+   - Lit l'historique des prix Bitcoin
+
+2. Calcul des retours BTC:
+   - Pour chaque point d'impact, calcule le retour BTC sur la même période
+
+3. Analyse de décorrélation:
+   - Pour chaque métrique et fenêtre temporelle, utilise la corrélation avec BTC
+   - Calcule l'impact attendu du BTC basé sur la corrélation
+   - Soustrait cet impact attendu de l'impact brut pour obtenir l'impact décorrélé
+
+4. Analyse comparative:
+   - Compare les directions d'impact avant et après décorrélation
+   - Identifie les changements de direction
+
+5. Création de visualisations intermédiaires:
+   - Génère un graphique de répartition des directions d'impact
+
+6. Sortie:
+   - Génère impact_decorrelé.csv: Contient les impacts décorrélés
+   - Génère changements_direction.csv: Liste les changements de direction après décorrélation
+   - Sauvegarde les visualisations dans figures/
+
+Les outputs de cette étape sont stockés dans FinancialResults/Outputs/AnalyseDecorelation/
+
+------------------------------------------------------------
+ÉTAPE 3: GÉNÉRATION DES VISUALISATIONS
+------------------------------------------------------------
+
+Script: generate_impact_visuals.py
+
+Fonctionnement:
+1. Chargement des données:
+   - Lit les résultats d'impact décorrélé (impact_decorrelé.csv)
+   - Lit les données de sorties de fonds (Onchain_exits_dynamic.csv)
+
+2. Visualisation 1: Répartition des directions d'impact
+   - Crée un graphique comparant la distribution des impacts (positif/stable/négatif)
+     avant et après décorrélation
+   - Affiche les résultats par fenêtre temporelle (1, 6, 12 mois)
+
+3. Visualisation 2: Small Multiples des métriques
+   - Sélectionne les métriques les plus importantes
+   - Pour chaque métrique et horizon temporel, trace l'évolution moyenne
+     de l'impact décorrélé en fonction du temps
+   - Ajoute des bandeaux de dispersion (quartiles 25% et 75%)
+   - Affiche le nombre d'observations pour chaque courbe
+
+4. Sortie:
+   - Génère tableau2_directions_impact.png: Distribution des impacts
+   - Génère small_multiples_metrics.png: Évolution temporelle des métriques
+   - Crée un PDF consolidant toutes les visualisations (impact_visuals.pdf)
+
+Les outputs de cette étape sont stockés dans VisualsOutput/
+
+------------------------------------------------------------
+EXÉCUTION AUTOMATIQUE DU PIPELINE
+------------------------------------------------------------
+
+Script: run_pipeline.py
+
+Fonctionnement:
+1. Exécute process_project_metrics.py
+2. Exécute analyse_impact_decorrelation_btc.py
+3. Exécute generate_impact_visuals.py
+4. Affiche un résumé des fichiers générés
+
+Chaque étape est exécutée séquentiellement, avec capture des sorties et
+gestion des erreurs. Si une étape échoue, le pipeline s'arrête et affiche
+les erreurs correspondantes.
+
+Pour exécuter l'ensemble du pipeline:
+```
+python run_pipeline.py
+```
+
+------------------------------------------------------------
+INTERPRÉTATION DES RÉSULTATS
+------------------------------------------------------------
+
+1. Répartition des impacts (tableau2_directions_impact.png):
+   - Montre comment la distribution des impacts (positif/neutre/négatif)
+     change après décorrélation avec BTC
+   - Permet d'identifier si les sorties de fonds ont un impact intrinsèque
+     ou si l'impact apparent est principalement dû aux mouvements du marché
+
+2. Évolution temporelle (small_multiples_metrics.png):
+   - Montre comment les différentes métriques évoluent après une sortie de fonds
+   - Permet de comparer les impacts à court terme (1 mois), moyen terme (6 mois)
+     et long terme (12 mois)
+   - Les bandeaux bleus représentent la dispersion des données
+
+Les résultats montrent l'effet spécifique des sorties de fonds d'investissement
+sur les projets crypto, en neutralisant l'influence du marché global (via le Bitcoin).
+
+------------------------------------------------------------
+FIN DU DOCUMENT
+------------------------------------------------------------ 
